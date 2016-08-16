@@ -123,8 +123,8 @@ couchbase_download_links = {
   "ubuntu14"   => "#{couchbase_releases}/#{version}/couchbase-server-enterprise_#{version}-ubuntu14.04_amd64",
 }
 
-default_number_of_nodes = 4
-default_RAM_in_MB = 1024
+default_number_of_nodes = 8
+default_RAM_in_MB = 5120
 default_number_of_cpus = 1
 
 ## Edit these to allow other machines in your network to access the VMs
