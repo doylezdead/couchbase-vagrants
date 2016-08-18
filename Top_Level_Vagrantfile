@@ -123,9 +123,6 @@ couchbase_download_links = {
   "ubuntu14"   => "#{couchbase_releases}/#{version}/couchbase-server-enterprise_#{version}-ubuntu14.04_amd64",
 }
 
-default_number_of_nodes = 8
-default_RAM_in_MB = 5120
-default_number_of_cpus = 1
 
 ## Edit these to allow other machines in your network to access the VMs
 
@@ -145,34 +142,14 @@ default_bridge = "wlan0"
 public_ip_base = "192.168.1.10%d"
 
 
-### DO NOT EDIT BELOW THIS LINE
+#VirtualBox guest configuration.  These will work well with hp z6xx series workstations (16cpus x 64G mem)
+#8 nodes provides a sizable cluster to workwith and experiment with different replication setups
+num_nodes = 8
+ram_in_MB = 5120
+num_cpus = 1
+exec_cap = 70  # Adding this in for multiple reasons.  1. cb is not cpu heavy for most tasks, 2. the host machine is also the populator and this may help alleviate that conflict of shared resources
+vpn = "off"
 
-# Number of nodes to provision
-unless ENV['VAGRANT_NODES'].nil? || ENV['VAGRANT_NODES'] == 0
-  num_nodes = ENV['VAGRANT_NODES'].to_i
-else
-  if num_nodes.nil?
-    num_nodes = default_number_of_nodes
-  end
-end
-
-unless ENV['VAGRANT_CPUS'].nil? || ENV['VAGRANT_CPUS'] == 0
-  num_cpus = ENV['VAGRANT_CPUS'].to_i
-else
-  num_cpus = default_number_of_cpus
-end
-
-unless ENV['VAGRANT_RAM'].nil? || ENV['VAGRANT_RAM'] == 0
-  ram_in_MB = ENV['VAGRANT_RAM'].to_i
-else
-  ram_in_MB = default_RAM_in_MB
-end
-
-unless ENV['VAGRANT_VPN'].nil?
-  vpn = "on"
-else
-  vpn = "off"
-end
 
 # Check to see if a custom download location has been given, if not use a default value (2.5.0 style)
 if couchbase_download_links.has_key?(version)
@@ -215,6 +192,7 @@ Vagrant.configure("2") do |config|
     vb.cpus = num_cpus
     vb.customize ["modifyvm", :id, "--ioapic", "on"]
     vb.customize ["modifyvm", :id, "--natdnshostresolver1", "#{vpn}"]
+    vb.customize ["modifyvm", :id, "--cpuexecutioncap", "#{exec_cap}"]
     vb.linked_clone = true if Vagrant::VERSION >= "1.8.0"
     vb.destroy_unused_network_interfaces = true
   end
@@ -255,23 +233,25 @@ Vagrant.configure("2") do |config|
     end
   end
   
-  # I edited below that line
   config.ssh.insert_key = false
+  # Set kernel swappiness to 1 to avoid using swap space for as long as possible
   config.vm.provision :shell, inline: "echo 'vm.swappiness = 1' >> /etc/sysctl.conf && echo 'SUCCESS ON SETTING SWAPPINESS :) BE SWAPPY'"
 
 
   # Provision Config for each of the nodes
   1.upto(num_nodes) do |num|
     config.vm.define "node#{num}" do |node|
+      
+      # At least 1 node should get the ui port forwarded to it
+      if "#{num}"=="1"
+        node.vm.network "forwarded_port", guest: 8091, host: 7000, auto_correct: false
+      end
+
 
       node.vm.box = box_name
       if !(box_version.nil?)
         node.vm.box_version = box_version
       end
-      if node == 'node1'
-        config.vm.network "forwarded_port", guest: 8091, host: 7000
-      end
-
       if Vagrant.has_plugin?("vagrant-cachier")
         # Configure cached packages to be shared between instances of the same base box.
         config.cache.scope = :box
