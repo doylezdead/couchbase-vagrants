@@ -254,18 +254,24 @@ Vagrant.configure("2") do |config|
       }
     end
   end
-
+  
   # I edited below that line
   config.ssh.insert_key = false
   config.vm.provision :shell, inline: "echo 'vm.swappiness = 1' >> /etc/sysctl.conf && echo 'SUCCESS ON SETTING SWAPPINESS :) BE SWAPPY'"
 
+
   # Provision Config for each of the nodes
   1.upto(num_nodes) do |num|
     config.vm.define "node#{num}" do |node|
+
       node.vm.box = box_name
       if !(box_version.nil?)
         node.vm.box_version = box_version
       end
+      if node == 'node1'
+        config.vm.network "forwarded_port", guest: 8091, host: 7000
+      end
+
       if Vagrant.has_plugin?("vagrant-cachier")
         # Configure cached packages to be shared between instances of the same base box.
         config.cache.scope = :box
